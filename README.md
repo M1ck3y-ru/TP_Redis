@@ -58,10 +58,10 @@ Modifiez le fichier de configuration Redis (généralement `/opt/hombrew/etc/red
 
 ```bash
 # Autoriser les connexions externes (pour la réplication ou le clustering)
-bind 0.0.0.0
+bind 192.168.1.17
 
 # Définir un mot de passe (recommandé)
-requirepass VotreMotDePasseComplexe
+requirepass ThisIsASecurePassword
 
 # Pour la réplication ou le clustering
 protected-mode no
