@@ -54,7 +54,7 @@ redis-cli ping                      # Doit renvoyer "PONG"
 ```
 
 ### Configuration de base
-Modifiez le fichier de configuration Redis (généralement `/etc/redis/redis.conf`) :
+Modifiez le fichier de configuration Redis (généralement `/opt/hombrew/etc/redis.conf`) :
 
 ```bash
 # Autoriser les connexions externes (pour la réplication ou le clustering)
