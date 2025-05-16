@@ -109,29 +109,6 @@ redis-cli -a VotreMotDePasseSlave
 > INFO replication
 ```
 
-### Option 2 : Cluster Redis
-
-#### Configuration des nœuds
-Créez au moins 3 instances Redis (idéalement 6 pour avoir une réplication) :
-
-```bash
-# Créez les répertoires pour chaque nœud
-mkdir -p /path/to/cluster/{7000,7001,7002,7003,7004,7005}
-```
-
-Pour chaque nœud, créez un fichier de configuration (ex: `redis-7000.conf`) :
-```bash
-port 7000
-cluster-enabled yes
-cluster-config-file nodes-7000.conf
-cluster-node-timeout 5000
-appendonly yes
-dir /path/to/cluster/7000
-bind 0.0.0.0
-requirepass VotreMotDePasse
-masterauth VotreMotDePasse
-```
-
 Répétez pour chaque port (7001, 7002, etc.) en changeant les valeurs appropriées.
 
 #### Démarrer les nœuds
