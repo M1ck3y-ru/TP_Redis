@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Cache Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #8639e6;
+            --secondary: #4dabf7;
+            --success: #28d771;
+            --danger: #ff4757;
+            --warning: #ffaa00;
+            --dark: #141c2f;
+            --light: #f8f9fa;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --blur: 10px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #141c2f, #2e3555);
+            color: var(--light);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: var(--primary);
+            filter: blur(80px);
+            opacity: 0.2;
+            z-index: -1;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            right: -50px;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: var(--secondary);
+            filter: blur(80px);
+            opacity: 0.2;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo i {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(40, 215, 113, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(40, 215, 113, 0.3);
+        }
+
+        .status-badge i {
+            font-size: 12px;
+        }
+
+        .status-info {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .search-panel {
+            margin-bottom: 20px;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-group {
+            flex: 1;
+            position: relative;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px 20px;
+            color: var(--light);
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: rgba(134, 57, 230, 0.5);
+            box-shadow: 0 0 0 3px rgba(134, 57, 230, 0.2);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, var(--primary), #7634c9);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #7d35d9, #6a2eb8);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--light);
+        }
+
+        .response-panel {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .panel-header h2 {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .panel-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-cache {
+            background: rgba(40, 215, 113, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(40, 215, 113, 0.3);
+        }
+
+        .badge-db {
+            background: rgba(255, 170, 0, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(255, 170, 0, 0.3);
+        }
+
+        .response-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .json-content {
+            height: 100%;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+            overflow: auto;
+        }
+
+        .json-key {
+            color: var(--secondary);
+        }
+
+        .json-string {
+            color: var(--success);
+        }
+
+        .json-number {
+            color: var(--warning);
+        }
+
+        .json-boolean {
+            color: var(--primary);
+        }
+
+        .response-meta {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .ttl-progress {
+            margin-top: 15px;
+        }
+
+        .ttl-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .ttl-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .ttl-fill {
+            height: 100%;
+            width: 70%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 3px;
+            transition: width 1s linear;
+        }
+
+        .history-panel {
+            margin-top: 20px;
+        }
+
+        .history-list {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .history-item {
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .load-time {
+            margin-top: 8px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .time-fast {
+            background: rgba(40, 215, 113, 0.15);
+            color: var(--success);
+        }
+
+        .time-slow {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--danger);
+        }
+
+        @media (max-width: 992px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-form {
+                flex-direction: column;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-database"></i>
+                <h1>Redis Cache Monitor</h1>
+            </div>
+            <div class="status">
+                <div class="status-badge">
+                    <i class="fas fa-circle"></i>
+                    Connecté
+                </div>
+                <span class="status-info">192.168.1.17:6379</span>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="card search-panel fade-in">
+                <h2>Recherche de données</h2>
+                <p style="margin: 10px 0; color: rgba(255,255,255,0.6); font-size: 14px;">
+                    Entrez l'ID de l'élément à rechercher dans le cache Redis
+                </p>
+                <div class="search-form">
+                    <div class="form-group">
+                        <input type="text" id="item-id" class="form-control" placeholder="ID de l'élément (ex: 123)">
+                    </div>
+                    <button id="search-btn" class="btn">
+                        <i class="fas fa-search"></i>
+                        Rechercher
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Cache Hit Ratio</div>
+                        <div class="stat-value" id="hit-ratio">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Temps de réponse</div>
+                        <div class="stat-value" id="response-time">0 ms</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Requêtes</div>
+                        <div class="stat-value" id="request-count">0</div>
+                    </div>
+                </div>
+
+                <div class="history-panel">
+                    <h3>Historique récent</h3>
+                    <div class="history-list" id="history-list">
+                        <!-- JS will populate this -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="card response-panel fade-in">
+                <div class="panel-header">
+                    <h2>Réponse</h2>
+                    <div id="source-badge" class="panel-badge hidden">
+                        <i class="fas fa-bolt"></i>
+                        <span id="source-text">Cache</span>
+                    </div>
+                </div>
+
+                <div class="response-card">
+                    <pre class="json-content" id="json-response">// Les données s'afficheront ici
+// Effectuez une recherche pour voir les résultats</pre>
+
+                    <div class="response-meta hidden" id="response-meta">
+                        <div id="timestamp">--</div>
+                        <div id="response-size">--</div>
+                    </div>
+
+                    <div class="ttl-progress hidden" id="ttl-container">
+                        <div class="ttl-label">
+                            <div>Durée de vie du cache (TTL)</div>
+                            <div id="ttl-value">60s</div>
+                        </div>
+                        <div class="ttl-bar">
+                            <div class="ttl-fill" id="ttl-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="load-time">
+                    <i class="fas fa-clock"></i>
+                    <span id="load-time-text">Temps de chargement: --</span>
+                    <span id="load-time-badge" class="time-badge hidden"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Définir la constante pour le TTL (comme dans votre backend Python)
+        const CACHE_TTL = 60;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchBtn = document.getElementById('search-btn');
+            const itemIdInput = document.getElementById('item-id');
+            const jsonResponse = document.getElementById('json-response');
+            const sourceBadge = document.getElementById('source-badge');
+            const sourceText = document.getElementById('source-text');
+            const ttlContainer = document.getElementById('ttl-container');
+            const ttlValue = document.getElementById('ttl-value');
+            const ttlFill = document.getElementById('ttl-fill');
+            const responseMeta = document.getElementById('response-meta');
+            const timestamp = document.getElementById('timestamp');
+            const responseSize = document.getElementById('response-size');
+            const loadTimeText = document.getElementById('load-time-text');
+            const loadTimeBadge = document.getElementById('load-time-badge');
+            const historyList = document.getElementById('history-list');
+            const hitRatio = document.getElementById('hit-ratio');
+            const responseTime = document.getElementById('response-time');
+            const requestCount = document.getElementById('request-count');
+
+            // Stats
+            let totalRequests = 0;
+            let cacheHits = 0;
+            let totalResponseTime = 0;
+            const history = [];
+            // Pour stocker les intervalles TTL actifs
+            let activeIntervals = {};
+
+            // Format JSON with color highlighting
+            function formatJSON(json) {
+                if (typeof json !== 'string') {
+                    json = JSON.stringify(json, null, 2);
+                }
+                return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+                    let cls = 'json-number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'json-key';
+                        } else {
+                            cls = 'json-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'json-boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'json-null';
+                    }
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            }
+
+            // Fetch data and update UI
+            function fetchData(id) {
+                const startTime = performance.now();
+                jsonResponse.innerHTML = 'Chargement...';
+                sourceBadge.className = 'panel-badge hidden';
+                ttlContainer.className = 'ttl-progress hidden';
+                responseMeta.className = 'response-meta hidden';
+                
+                // Annuler tout intervalle TTL actif
+                if (activeIntervals[id]) {
+                    clearInterval(activeIntervals[id]);
+                    delete activeIntervals[id];
+                }
+                
+                // Increment request count
+                totalRequests++;
+                requestCount.textContent = totalRequests;
+
+                // Appel réel à l'API
+                fetch(`/api/data/${id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const endTime = performance.now();
+                        const loadTime = Math.round(endTime - startTime);
+                        
+                        // Mettre à jour l'interface avec les données réelles
+                        if (data.source === 'cache') {
+                            cacheHits++;
+                        }
+                        
+                        // Update hit ratio
+                        hitRatio.textContent = Math.round((cacheHits / totalRequests) * 100) + '%';
+                        
+                        // Afficher le temps de réponse réel
+                        if (data.response_time) {
+                            responseTime.textContent = data.response_time + ' ms';
+                            totalResponseTime += data.response_time;
+                        } else {
+                            responseTime.textContent = Math.round(totalResponseTime / totalRequests) + ' ms';
+                        }
+                        
+                        loadTimeText.textContent = `Temps de chargement: ${loadTime} ms`;
+                        loadTimeBadge.className = 'time-badge ' + (data.source === 'cache' ? 'time-fast' : 'time-slow');
+                        loadTimeBadge.textContent = data.source === 'cache' ? 'Rapide' : 'Lent';
+                        loadTimeBadge.classList.remove('hidden');
+
+                        // Add to history if not already there
+                        if (!history.some(item => item.id === id)) {
+                            history.push({ id, time: new Date() });
+                            // Keep only last 5 items
+                            if (history.length > 5) {
+                                history.shift();
+                            }
+                            updateHistory();
+                        }
+
+                        // Update UI
+                        jsonResponse.innerHTML = formatJSON(data);
+                        sourceBadge.className = 'panel-badge ' + (data.source === 'cache' ? 'badge-cache' : 'badge-db');
+                        sourceText.textContent = data.source === 'cache' ? 'Cache' : 'Base de données';
+
+                        if (data.source === 'cache' && data.ttl) {
+                            ttlContainer.classList.remove('hidden');
+                            ttlValue.textContent = data.ttl + 's';
+                            ttlFill.style.width = (data.ttl / CACHE_TTL * 100) + '%';
+                            
+                            // Simulate TTL countdown
+                            let currentTtl = data.ttl;
+                            activeIntervals[id] = setInterval(() => {
+                                currentTtl--;
+                                if (currentTtl <= 0) {
+                                    clearInterval(activeIntervals[id]);
+                                    delete activeIntervals[id];
+                                    currentTtl = 0;
+                                }
+                                ttlValue.textContent = currentTtl + 's';
+                                ttlFill.style.width = (currentTtl / CACHE_TTL * 100) + '%';
+                            }, 1000);
+                        }
+
+                        responseMeta.classList.remove('hidden');
+                        timestamp.textContent = new Date().toLocaleTimeString();
+                        responseSize.textContent = JSON.stringify(data).length + ' octets';
+                    })
+                    .catch(error => {
+                        jsonResponse.innerHTML = `Erreur: ${error.message}`;
+                        console.error('Erreur lors de la récupération des données:', error);
+                    });
+            }
+
+            // Update history list
+            function updateHistory() {
+                historyList.innerHTML = '';
+                history.forEach(item => {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.innerHTML = `<i class="fas fa-clock"></i> Item ${item.id}`;
+                    historyItem.addEventListener('click', () => {
+                        itemIdInput.value = item.id;
+                        fetchData(item.id);
+                    });
+                    historyList.appendChild(historyItem);
+                });
+            }
+
+            // Event listener for search button
+            searchBtn.addEventListener('click', () => {
+                const id = itemIdInput.value.trim();
+                if (id) {
+                    fetchData(id);
+                }
+            });
+
+            // Event listener for Enter key
+            itemIdInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const id = itemIdInput.value.trim();
+                    if (id) {
+                        fetchData(id);
+                    }
+                }
+            });
+
+            // Initialiser les statistiques
+            hitRatio.textContent = '0%';
+            responseTime.textContent = '0 ms';
+            requestCount.textContent = '0';
+
+            // Facultatif : récupérer les statistiques au démarrage
+            /*
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(stats => {
+                    totalRequests = stats.total_requests || 0;
+                    cacheHits = stats.cache_hits || 0;
+                    totalResponseTime = (stats.average_response_time || 0) * totalRequests;
+                    
+                    if (totalRequests > 0) {
+                        hitRatio.textContent = Math.round((cacheHits / totalRequests) * 100) + '%';
+                        responseTime.textContent = stats.average_response_time + ' ms';
+                        requestCount.textContent = totalRequests;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération des statistiques:', error);
+                });
+            */
+        });
+        // Ajouter ce code dans votre section <script> du fichier index.html
+document.addEventListener('DOMContentLoaded', function() {
+    // ... votre code existant ...
+    
+    // Ajouter un gestionnaire pour le bouton de base de données
+    const dbButton = document.querySelector('.base-de-donnees');
+
+    if (dbButton) {
+        dbButton.addEventListener('click', function() {
+            const id = itemIdInput.value.trim();
+            if (id) {
+                // Extraire l'ID du produit si le format complet est entré
+                const productId = id.includes('db:product:') ? id.replace('db:product:', '') : id;
+                fetchDbProduct(productId);
+            }
+        });
+    }
+    
+    // Fonction pour récupérer les données d'un produit de la base de données
+    function fetchDbProduct(productId) {
+        const startTime = performance.now();
+        jsonResponse.innerHTML = 'Chargement des données de la base...';
+        sourceBadge.className = 'panel-badge hidden';
+        ttlContainer.className = 'ttl-progress hidden';
+        responseMeta.className = 'response-meta hidden';
+        
+        fetch(`/api/db/product/${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                const endTime = performance.now();
+                const loadTime = Math.round(endTime - startTime);
+                
+                // Mettre à jour l'interface
+                jsonResponse.innerHTML = formatJSON(data);
+                sourceBadge.className = 'panel-badge badge-db';
+                sourceText.textContent = 'Base de données Redis';
+                sourceBadge.classList.remove('hidden');
+                
+                loadTimeText.textContent = `Temps de chargement: ${loadTime} ms`;
+                loadTimeBadge.className = 'time-badge time-fast';
+                loadTimeBadge.textContent = 'Base Redis';
+                loadTimeBadge.classList.remove('hidden');
+                
+                responseMeta.classList.remove('hidden');
+                timestamp.textContent = new Date().toLocaleTimeString();
+                responseSize.textContent = JSON.stringify(data).length + ' octets';
+            })
+            .catch(error => {
+                jsonResponse.innerHTML = `Erreur: ${error.message}`;
+                console.error('Erreur lors de la récupération des données:', error);
+            });
+    }
+});
+    </script>
+</body>
+</html>

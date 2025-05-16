@@ -1,270 +1,199 @@
-# Atelier Redis - Système de Cache Distribué
+Redis comme système de cache distribué : applications, comparaison avec les bases relationnelles, et implémentation
+Dans quels types de projets Redis est utile ?
+Redis est particulièrement utile dans plusieurs types de projets :
 
-## Table des matières
-- [Introduction](#introduction)
-- [Prérequis](#prérequis)
-- [Partie 1 - Installation de Redis](#partie-1---installation-de-redis)
-- [Partie 2 - Architecture distribuée](#partie-2---architecture-distribuée)
-  - [Option 1 : Réplication Master/Slave](#option-1--réplication-masterslave)
-  - [Option 2 : Cluster Redis](#option-2--cluster-redis)
-- [Partie 3 - Intégration dans une application web](#partie-3---intégration-dans-une-application-web)
-- [Partie 4 - Vérification et démonstration](#partie-4---vérification-et-démonstration)
-- [Ressources utiles](#ressources-utiles)
-- [Dépannage](#dépannage)
+Applications nécessitant des performances élevées :
 
-## Introduction
+Sites web à fort trafic
+Applications temps réel (chat, streaming)
+Jeux en ligne avec scores en temps réel
+API à haute disponibilité
 
-Cet atelier vous permettra de découvrir Redis, un système de stockage de données en mémoire performant et polyvalent. Vous apprendrez à l'installer, le configurer en mode distribué (réplication ou clustering), puis à l'intégrer dans une application web en tant que cache selon le modèle cache-aside.
 
-## Prérequis
+Cas d'usage spécifiques :
 
-- Environnement Linux, macOS ou Windows (WSL recommandé pour Windows)
-- Droits d'administrateur sur votre machine
-- Connaissances de base en ligne de commande
-- Connaissances dans au moins un langage de programmation web (Python, Node.js, PHP, etc.)
+Mise en cache de données (comme notre projet)
+Gestion de sessions utilisateurs
+Files d'attente de messages
+Limite de taux d'appels API (rate limiting)
+Analyse de données en temps réel
+Compteurs et statistiques en direct
+Classements et leaderboards
 
-## Partie 1 - Installation de Redis
 
-### Installation
+Architecture microservices : Comme couche de communication entre services ou pour stocker des données partagées
+Systèmes distribués : En raison de sa capacité à fonctionner en mode cluster ou réplication
+a
+Redis vs Bases de données relationnelles : Pourquoi clé-valeur ?
+Redis est une base de données de type clé-valeur et non relationnelle pour plusieurs raisons :
 
-#### Sur Ubuntu/Debian
-```bash
-sudo apt update
-sudo apt install redis-server
-```
+Performance :
 
-#### Sur macOS
-```bash
-brew install redis
-```
+Redis stocke tout en mémoire (RAM), permettant des temps de réponse en microsecondes
+Les bases relationnelles utilisent principalement le disque, qui est beaucoup plus lent
 
-#### Sur CentOS/RHEL
-```bash
-sudo yum install redis
-```
 
-### Vérification de l'installation
-```bash
-# Démarrer le serveur Redis
-sudo systemctl start redis-server   # Sur Linux avec systemd
-redis-server                        # Démarrage manuel
+Simplicité et accès direct :
+
+Redis accède aux données directement par leur clé (O(1) - complexité constante)
+Les bases relationnelles nécessitent souvent des jointures et des recherches complexes
+
+
+Flexibilité des données :
+
+Redis ne force pas de schéma rigide (pas de tables avec colonnes définies)
+Les valeurs dans Redis peuvent être des structures variées (chaînes, listes, ensembles, hashes)
+
+
+Cas d'usage différents :
+
+Redis se spécialise dans l'accès rapide à des données connues par leur identifiant
+Les bases relationnelles excellent pour les requêtes complexes et les relations entre entités
+
+
+Complémentarité plutôt qu'opposition :
+
+Dans beaucoup d'architectures, Redis complète une base relationnelle (stockant temporairement les données fréquemment accédées)
+Notre projet est un excellent exemple : les données "permanentes" pourraient être dans une base relationnelle, et Redis sert de cache rapide
+
+
+
+Atelier Redis adapté - Système de Cache avec Réplication Master/Slave
+Table des matières
+
+Introduction
+Prérequis
+Partie 1 - Installation et configuration de Redis
+Partie 2 - Architecture distribuée avec réplication Master/Slave
+Partie 3 - Interface utilisateur moderne pour le monitoring Redis
+Partie 4 - Redis comme base de données persistante
+Ressources utiles
+Dépannage
+
+Introduction
+Dans cet atelier, nous avons utilisé Redis pour créer un système de cache distribué avec une interface utilisateur moderne. Nous avons aussi exploré l'utilisation de Redis comme base de données en plus de son rôle de cache, démontrant sa flexibilité.
+Prérequis
+
+Environnement macOS, Linux ou Windows avec WSL
+Python 3.x et Flask
+Redis Server
+Navigateur web moderne pour l'interface glassmorphism
+
+Partie 1 - Installation et configuration de Redis
+Installation (macOS)
+bashbrew install redis
+Vérification de l'installation
+bash# Démarrer le serveur Redis
+redis-server
 
 # Vérifier que Redis fonctionne
-redis-cli ping                      # Doit renvoyer "PONG"
-```
-
-### Configuration de base
-Modifiez le fichier de configuration Redis (généralement `/opt/hombrew/etc/redis.conf`) :
-
-```bash
-# Autoriser les connexions externes (pour la réplication ou le clustering)
-bind 192.168.1.17
-
-# Définir un mot de passe (recommandé)
-requirepass ThisIsASecurePassword
-
-# Pour la réplication ou le clustering
-protected-mode no
-```
-
-N'oubliez pas de redémarrer Redis après modification :
-```bash
-sudo systemctl restart redis-server
-```
-
-## Partie 2 - Architecture distribuée
-
-Choisissez l'une des deux options suivantes :
-
-### Option 1 : Réplication Master/Slave
-
-#### Configuration du Master
-Le serveur est déjà configuré par défaut comme un master. Assurez-vous simplement que :
-```bash
-# Dans redis.conf du master
-bind 0.0.0.0
-requirepass VotreMotDePasseMaster
-masterauth VotreMotDePasseMaster  # Pour permettre la réplication sécurisée
-```
-
-#### Configuration des Slaves
-Sur chaque serveur slave, modifiez `redis.conf` :
-```bash
-# Dans redis.conf du slave
-replicaof <IP_DU_MASTER> 6379
-masterauth VotreMotDePasseMaster
-requirepass VotreMotDePasseSlave
-```
-
-#### Vérification de la réplication
-```bash
-# Sur le master
-redis-cli -a VotreMotDePasseMaster
+redis-cli ping  # Doit renvoyer "PONG"
+Partie 2 - Architecture distribuée avec réplication Master/Slave
+Configuration du Master
+bash# Configurer le serveur master sur le port par défaut (6379)
+redis-server
+Configuration du Slave
+bash# Configurer le serveur slave sur un port différent (6380)
+# avec réplication depuis le master
+redis-server --port 6380 --replicaof 127.0.0.1 6379
+Vérification de la réplication
+bash# Sur le master
+redis-cli -p 6379
 > SET test "Hello Redis"
 > INFO replication
 
 # Sur un slave
-redis-cli -a VotreMotDePasseSlave
-> GET test                # Devrait afficher "Hello Redis"
-> INFO replication
-```
-
-Répétez pour chaque port (7001, 7002, etc.) en changeant les valeurs appropriées.
-
-#### Démarrer les nœuds
-```bash
-redis-server /path/to/cluster/7000/redis-7000.conf &
-redis-server /path/to/cluster/7001/redis-7001.conf &
-# ... et ainsi de suite pour chaque nœud
-```
-
-#### Création du cluster
-```bash
-redis-cli --cluster create 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 127.0.0.1:7004 127.0.0.1:7005 -a VotreMotDePasse --cluster-replicas 1
-```
-
-#### Test du cluster
-```bash
-redis-cli -c -p 7000 -a VotreMotDePasse
-> SET key1 "value1"
-> SET key2 "value2"
-> CLUSTER KEYSLOT key1       # Voir sur quel nœud cette clé est stockée
-> CLUSTER NODES              # Voir tous les nœuds et leur état
-```
-
-## Partie 3 - Intégration dans une application web
-
-Voici un exemple simple en Python avec Flask :
-
-```python
-from flask import Flask, jsonify
-import redis
-import time
-import json
-
-app = Flask(__name__)
-
-# Configuration Redis
-redis_client = redis.Redis(
-    host='localhost',
-    port=6379,
-    password='VotreMotDePasse',
-    decode_responses=True
-)
-
-# Durée de vie du cache en secondes
-CACHE_TTL = 60
-
-@app.route('/data/<item_id>')
-def get_data(item_id):
-    # Étape 1: Vérifier si la donnée est en cache
-    cache_key = f"data:{item_id}"
-    cached_data = redis_client.get(cache_key)
-    
-    # Source de la réponse (cache ou base de données)
-    source = "cache"
-    
-    if cached_data:
-        # Étape 2: Donnée trouvée dans le cache
-        data = json.loads(cached_data)
-    else:
-        # Étape 3: Donnée absente du cache
-        source = "database"
-        
-        # Simulation d'une requête lente à la base de données
-        time.sleep(2)
-        
-        # Génération de données simulées
-        data = {
-            "id": item_id,
-            "name": f"Item {item_id}",
-            "description": f"Description for item {item_id}",
-            "timestamp": time.time()
-        }
-        
-        # Enregistrement dans Redis avec expiration
-        redis_client.setex(
-            cache_key,
-            CACHE_TTL,
-            json.dumps(data)
-        )
-    
-    # Ajout de la source et du TTL restant à la réponse
-    response = {
-        "data": data,
-        "source": source
-    }
-    
-    if source == "cache":
-        response["ttl"] = redis_client.ttl(cache_key)
-    
-    return jsonify(response)
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-```
-
-### Instructions d'exécution
-```bash
-# Installation des dépendances
+redis-cli -p 6380
+> GET test                # Affiche "Hello Redis"
+> INFO replication        # Confirme le statut replica
+Partie 3 - Interface utilisateur moderne pour le monitoring Redis
+Nous avons créé une interface utilisateur moderne avec design glassmorphism pour visualiser et interagir avec Redis :
+Installation de l'application
+bash# Installation des dépendances
 pip install flask redis
 
+# Cloner le dépôt (ou créer les fichiers manuellement)
+git clone https://github.com/votre-nom/redis-monitor.git
+cd redis-monitor
+
 # Démarrer l'application
-python app.py
-```
+python main.py
+Fonctionnalités de l'interface
 
-## Partie 4 - Vérification et démonstration
+Recherche d'éléments dans le cache Redis
+Visualisation du temps de réponse (cache vs. base de données)
+Affichage du TTL (time-to-live) restant pour les entrées en cache
+Statistiques de performance (Cache Hit Ratio)
+Historique des recherches récentes
 
-### Test de performance
-Utilisez curl ou un navigateur pour faire plusieurs requêtes successives :
+Partie 4 - Redis comme base de données persistante
+Nous avons étendu l'utilisation de Redis au-delà du cache pour stocker des données permanentes :
+Structure des données
 
-```bash
-# Première requête (lente, depuis la "base de données")
-time curl http://localhost:5000/data/123
+Produits stockés sous forme de chaînes JSON (db:product:<id>)
+Index des produits sous forme d'ensembles (db:products)
+Index par catégorie (db:category:<category>)
+Produits triés par prix (db:products:by_price)
 
-# Deuxième requête (rapide, depuis le cache)
-time curl http://localhost:5000/data/123
+API d'accès aux données
+python# Exemple d'accès à un produit
+@app.route('/api/db/product/<product_id>')
+def get_product(product_id):
+    product_key = f"db:product:{product_id}"
+    product_data = redis_client.get(product_key)
+    
+    if product_data:
+        return jsonify({
+            "data": json.loads(product_data),
+            "source": "redis_db"
+        })
+    else:
+        return jsonify({"error": "Produit non trouvé"}), 404
+Exemple de données produits
+python# Initialisation de la base de données produits
+def initialize_product_database():
+    products = [
+        {
+            "id": "prod1",
+            "name": "Smartphone Premium",
+            "price": 899.99,
+            "category": "electronics",
+            "in_stock": True,
+            "features": ["5G", "HDR Display", "Water Resistant"]
+        },
+        # Autres produits...
+    ]
+    
+    # Ajouter chaque produit à Redis (sans TTL = persistant)
+    for product in products:
+        redis_client.set(f"db:product:{product['id']}", json.dumps(product))
+        # Indexation par différents critères...
+Ressources utiles
 
-# Attendre l'expiration du cache (> 60 secondes)
-sleep 61
+Documentation officielle Redis
+Guide de réplication Redis
+Patterns Redis pour le caching
+Interface Flask-Redis
 
-# Requête après expiration (lente à nouveau)
-time curl http://localhost:5000/data/123
-```
+Dépannage
+Problèmes courants
 
-### Test de la distribution
+Erreur de connexion à Redis
 
-#### Pour la réplication
-1. Modifiez une donnée sur le master
-2. Vérifiez qu'elle est disponible sur les slaves
+Vérifiez que Redis est en cours d'exécution : ps aux | grep redis
+Assurez-vous que l'adresse et le port sont corrects dans votre code
+Pour se connecter localement, utilisez localhost ou 127.0.0.1
 
-#### Pour le clustering
-1. Utilisez `CLUSTER KEYSLOT` pour voir où les clés sont stockées
-2. Arrêtez un nœud primaire et vérifiez que son replica prend le relais
-3. Vérifiez que les données sont toujours accessibles
 
-## Ressources utiles
+L'interface ne s'affiche pas correctement
 
-- [Documentation officielle Redis](https://redis.io/documentation)
-- [Guide de réplication Redis](https://redis.io/topics/replication)
-- [Guide du clustering Redis](https://redis.io/topics/cluster-tutorial)
-- [Patterns de mise en cache](https://redis.io/docs/manual/patterns/distributed-locks/)
+Vérifiez que le serveur Flask est en cours d'exécution : python main.py
+Assurez-vous d'accéder à la bonne URL : http://localhost:8090
+Vérifiez les logs de Flask pour les erreurs potentielles
 
-## Dépannage
 
-### Problèmes courants
+Les données ne s'affichent pas dans l'interface
 
-1. **Impossible de se connecter à Redis**
-   - Vérifiez que Redis est en cours d'exécution : `ps aux | grep redis`
-   - Vérifiez la configuration de liaison : `grep bind /etc/redis/redis.conf`
-   - Vérifiez les pare-feu : `sudo ufw status` ou `sudo firewall-cmd --list-all`
-
-2. **La réplication ne fonctionne pas**
-   - Vérifiez les journaux : `journalctl -u redis-server`
-   - Vérifiez la connexion réseau entre les serveurs : `ping <IP_DU_MASTER>`
-   - Vérifiez le statut de la réplication : `redis-cli INFO replication`
-
-3. **Problèmes de cluster**
-   - Assurez-vous que tous les nœuds peuvent communiquer entre eux
-   - Vérifiez l'état du cluster : `redis-cli -c -p 7000 CLUSTER INFO`
-   - Réinitialisez un nœud si nécessaire : `redis-cli -c -p 7000 CLUSTER RESET`
+Utilisez redis-cli pour vérifier que les données existent bien dans Redis
+Vérifiez les clés : KEYS * (cache) ou KEYS db:* (base de données)
+Examinez une clé spécifique : GET db:product:prod1
